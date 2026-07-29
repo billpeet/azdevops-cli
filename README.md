@@ -2,19 +2,47 @@
 
 Azure DevOps CLI for AI agents and developers. Provides a structured command-line interface to Azure DevOps Services with JSON (default) and text output formats.
 
-## Installation
+## Install and set up the CLI
+
+Requires Node.js 18 or later.
 
 ```bash
-npm i -g @billpeet/azdevops-cli
+npm install -g @billpeet/azdevops-cli@latest
 ```
 
-## Setup
+Create an Azure DevOps [Personal Access Token (PAT)](https://learn.microsoft.com/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate), then save the organization, token, and optional default project:
 
 ```bash
 azdevops setup --org myorg --token YOUR_PAT --project MyProject
 ```
 
 Configuration is saved to `~/.config/azdevops-cli/config.json`.
+
+Confirm the CLI is ready:
+
+```bash
+azdevops project list --pretty
+```
+
+## Install the agent skill
+
+This repository includes an [Agent Skill](skills/azdevops/SKILL.md) that teaches supported coding agents how to use the CLI. Install it with the [skills.sh CLI](https://skills.sh/docs/cli):
+
+```bash
+npx skills add billpeet/azdevops-cli --skill azdevops
+```
+
+The installer prompts for the target agent and whether to install the skill for the current project or globally. To install it globally for a specific agent without prompts, use:
+
+```bash
+# Codex
+npx skills add billpeet/azdevops-cli --skill azdevops --agent codex --global --yes
+
+# Claude Code
+npx skills add billpeet/azdevops-cli --skill azdevops --agent claude-code --global --yes
+```
+
+Restart the agent after installation so it discovers the skill.
 
 ## Environment Variables
 
@@ -72,11 +100,18 @@ azdevops pr reviewers --repo <repo> --id <id> [--project <project>]
 
 # List review comment threads (system activity is hidden by default)
 azdevops pr comments --repo <repo> --id <id> [--unresolved] [--include-system] [--project <project>]
+
+# Add a general PR comment
+azdevops pr comment --repo <repo> --id <id> --content <text> [--project <project>]
+
+# Reply to a review comment
+azdevops pr comment --repo <repo> --id <id> --thread-id <thread-id> --parent-comment-id <comment-id> --content <text> [--project <project>]
 ```
 
 `pr comments` returns complete discussion threads with replies and file/line context. `--unresolved`
 keeps active, pending, and unknown threads while excluding fixed, closed, won't-fix, and by-design
-threads. Use the `threads` alias if you prefer Azure DevOps terminology.
+threads. Use the `threads` alias if you prefer Azure DevOps terminology. A PAT used to write
+comments needs the `Code (read & write)` scope.
 
 ### Pipelines
 
@@ -138,6 +173,9 @@ azdevops work-item query --wiql "SELECT [System.Id] FROM WorkItems WHERE [System
 
 # Get only actionable PR feedback, including file and line context
 azdevops pr comments --repo my-repo --id 42 --unresolved --pretty
+
+# Reply using the thread and comment IDs from the listing
+azdevops pr comment --repo my-repo --id 42 --thread-id 148 --parent-comment-id 1 --content "Fixed in the latest commit."
 ```
 
 ## Development

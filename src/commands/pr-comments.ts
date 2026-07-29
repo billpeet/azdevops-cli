@@ -1,10 +1,38 @@
-import { AzPullRequestCommentThread } from '../api/types';
+import { AzPullRequestComment, AzPullRequestCommentThread } from '../api/types';
 
 const RESOLVED_STATUSES = new Set(['fixed', 'wontFix', 'closed', 'byDesign']);
 
 export interface PullRequestCommentFilters {
   unresolved?: boolean;
   includeSystem?: boolean;
+}
+
+export interface PullRequestCommentReplyTarget {
+  threadId: number;
+  parentCommentId: number;
+}
+
+function positiveInteger(value: string, option: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${option} must be a positive integer.`);
+  }
+  return parsed;
+}
+
+export function parsePullRequestCommentReplyTarget(
+  threadId?: string,
+  parentCommentId?: string
+): PullRequestCommentReplyTarget | undefined {
+  if (!threadId && !parentCommentId) return undefined;
+  if (!threadId || !parentCommentId) {
+    throw new Error('Replying requires both --thread-id and --parent-comment-id.');
+  }
+
+  return {
+    threadId: positiveInteger(threadId, '--thread-id'),
+    parentCommentId: positiveInteger(parentCommentId, '--parent-comment-id'),
+  };
 }
 
 export function filterPullRequestCommentThreads(
@@ -46,11 +74,19 @@ export function printPullRequestCommentThreads(threads: AzPullRequestCommentThre
 
     for (const comment of thread.comments) {
       const reply = comment.parentCommentId > 0 ? '↳ ' : '';
-      console.log(`${reply}${comment.author?.displayName ?? 'Unknown'} (${comment.publishedDate})`);
+      console.log(
+        `${reply}Comment #${comment.id} by ${comment.author?.displayName ?? 'Unknown'} (${comment.publishedDate})`
+      );
       console.log(comment.content ?? '');
       console.log();
     }
   }
 
   console.log(`${threads.length} comment thread(s).`);
+}
+
+export function printPullRequestComment(comment: AzPullRequestComment, threadId: number): void {
+  console.log(`Comment #${comment.id} added to thread #${threadId}.`);
+  console.log();
+  console.log(comment.content ?? '');
 }

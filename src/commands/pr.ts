@@ -5,6 +5,8 @@ import { createClient } from '../api/client';
 import { AzPullRequest, AzReviewer } from '../api/types';
 import {
   filterPullRequestCommentThreads,
+  parsePullRequestCommentReplyTarget,
+  printPullRequestComment,
   printPullRequestCommentThreads,
 } from './pr-comments';
 
@@ -313,6 +315,69 @@ export function registerPr(program: Command): void {
           console.log(opts.pretty ? JSON.stringify(threads, null, 2) : JSON.stringify(threads));
         } else {
           printPullRequestCommentThreads(threads);
+        }
+      } catch (err) {
+        die(err);
+      }
+    });
+
+  pr
+    .command('comment')
+    .description('Add a comment to a pull request or reply to a review comment')
+    .requiredOption('--repo <repo>', 'Repository name or ID')
+    .requiredOption('--id <id>', 'Pull request ID')
+    .requiredOption('--content <text>', 'Comment content')
+    .option('--thread-id <id>', 'Thread ID to reply in')
+    .option('--parent-comment-id <id>', 'Comment ID to reply to')
+    .option('--project <project>', 'Project name (or set default with setup)')
+    .option('--format <format>', 'Output format: text or json', 'json')
+    .option('--pretty', 'Pretty-print JSON output')
+    .action(async (opts) => {
+      let config;
+      try { config = getConfig(); } catch (err) { die(err); }
+      let project;
+      try { project = resolveProject(opts, config); } catch (err) { die(err); }
+      let replyTarget;
+      try {
+        replyTarget = parsePullRequestCommentReplyTarget(
+          opts.threadId,
+          opts.parentCommentId
+        );
+      } catch (err) {
+        die(err);
+      }
+
+      const client = createClient(config);
+      try {
+        if (replyTarget) {
+          const comment = await client.replyToPullRequestComment(
+            project,
+            opts.repo,
+            parseInt(opts.id, 10),
+            replyTarget.threadId,
+            replyTarget.parentCommentId,
+            opts.content
+          );
+
+          if (opts.format === 'json') {
+            console.log(opts.pretty ? JSON.stringify(comment, null, 2) : JSON.stringify(comment));
+          } else {
+            printPullRequestComment(comment, replyTarget.threadId);
+          }
+          return;
+        }
+
+        const thread = await client.createPullRequestCommentThread(
+          project,
+          opts.repo,
+          parseInt(opts.id, 10),
+          opts.content
+        );
+
+        if (opts.format === 'json') {
+          console.log(opts.pretty ? JSON.stringify(thread, null, 2) : JSON.stringify(thread));
+        } else {
+          printPullRequestCommentThreads([thread]);
         }
       } catch (err) {
         die(err);

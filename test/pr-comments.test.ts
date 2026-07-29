@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import axios from 'axios';
 import { createClient } from '../src/api/client';
-import { AzPullRequestCommentThread } from '../src/api/types';
-import { filterPullRequestCommentThreads } from '../src/commands/pr-comments';
+import { AzPullRequestComment, AzPullRequestCommentThread } from '../src/api/types';
+import {
+  filterPullRequestCommentThreads,
+  parsePullRequestCommentReplyTarget,
+} from '../src/commands/pr-comments';
 
 function thread(
   id: number,
@@ -93,6 +96,121 @@ test('client requests the Azure DevOps pull request threads endpoint', async () 
       'My%20Project/_apis/git/repositories/my%2Frepo/pullrequests/123/threads'
     );
     assert.equal(result[0].id, 42);
+  } finally {
+    (axios as unknown as { create: typeof axios.create }).create = originalCreate;
+  }
+});
+
+test('reply target requires both IDs and validates positive integers', () => {
+  assert.equal(parsePullRequestCommentReplyTarget(), undefined);
+  assert.deepEqual(parsePullRequestCommentReplyTarget('148', '1'), {
+    threadId: 148,
+    parentCommentId: 1,
+  });
+  assert.throws(
+    () => parsePullRequestCommentReplyTarget('148'),
+    /both --thread-id and --parent-comment-id/
+  );
+  assert.throws(
+    () => parsePullRequestCommentReplyTarget(undefined, '1'),
+    /both --thread-id and --parent-comment-id/
+  );
+  assert.throws(
+    () => parsePullRequestCommentReplyTarget('thread', '1'),
+    /--thread-id must be a positive integer/
+  );
+  assert.throws(
+    () => parsePullRequestCommentReplyTarget('148', '0'),
+    /--parent-comment-id must be a positive integer/
+  );
+});
+
+test('client creates a new pull request comment thread', async () => {
+  const originalCreate = axios.create;
+  let requestedPath: string | undefined;
+  let requestedBody: unknown;
+  const createdThread = thread(147, 'active');
+
+  (axios as unknown as { create: typeof axios.create }).create = (() => ({
+    post: async (path: string, body: unknown) => {
+      requestedPath = path;
+      requestedBody = body;
+      return { data: createdThread };
+    },
+  })) as typeof axios.create;
+
+  try {
+    const client = createClient({ organization: 'my-org', token: 'secret' });
+    const result = await client.createPullRequestCommentThread(
+      'My Project',
+      'my/repo',
+      123,
+      'Looks good to me.'
+    );
+
+    assert.equal(
+      requestedPath,
+      'My%20Project/_apis/git/repositories/my%2Frepo/pullrequests/123/threads'
+    );
+    assert.deepEqual(requestedBody, {
+      comments: [
+        {
+          parentCommentId: 0,
+          content: 'Looks good to me.',
+          commentType: 1,
+        },
+      ],
+      status: 1,
+    });
+    assert.equal(result.id, 147);
+  } finally {
+    (axios as unknown as { create: typeof axios.create }).create = originalCreate;
+  }
+});
+
+test('client replies to a pull request review comment', async () => {
+  const originalCreate = axios.create;
+  let requestedPath: string | undefined;
+  let requestedBody: unknown;
+  const createdComment: AzPullRequestComment = {
+    id: 2,
+    parentCommentId: 1,
+    author: { id: 'author', displayName: 'Developer' },
+    content: 'Fixed in the latest commit.',
+    publishedDate: '2026-07-30T00:00:00Z',
+    lastUpdatedDate: '2026-07-30T00:00:00Z',
+    commentType: 'text',
+  };
+
+  (axios as unknown as { create: typeof axios.create }).create = (() => ({
+    post: async (path: string, body: unknown) => {
+      requestedPath = path;
+      requestedBody = body;
+      return { data: createdComment };
+    },
+  })) as typeof axios.create;
+
+  try {
+    const client = createClient({ organization: 'my-org', token: 'secret' });
+    const result = await client.replyToPullRequestComment(
+      'My Project',
+      'my/repo',
+      123,
+      148,
+      1,
+      'Fixed in the latest commit.'
+    );
+
+    assert.equal(
+      requestedPath,
+      'My%20Project/_apis/git/repositories/my%2Frepo/pullrequests/123/threads/148/comments'
+    );
+    assert.deepEqual(requestedBody, {
+      content: 'Fixed in the latest commit.',
+      parentCommentId: 1,
+      commentType: 1,
+    });
+    assert.equal(result.id, 2);
   } finally {
     (axios as unknown as { create: typeof axios.create }).create = originalCreate;
   }

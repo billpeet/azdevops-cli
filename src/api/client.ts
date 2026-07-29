@@ -5,6 +5,7 @@ import {
   AzRepository,
   AzRef,
   AzPullRequest,
+  AzPullRequestComment,
   AzPullRequestCommentThread,
   AzReviewer,
   AzPipeline,
@@ -34,6 +35,20 @@ export interface AzDevOpsClient {
   }): Promise<AzPullRequest>;
   listPullRequestReviewers(project: string, repo: string, id: number): Promise<AzReviewer[]>;
   listPullRequestCommentThreads(project: string, repo: string, id: number): Promise<AzPullRequestCommentThread[]>;
+  createPullRequestCommentThread(
+    project: string,
+    repo: string,
+    id: number,
+    content: string
+  ): Promise<AzPullRequestCommentThread>;
+  replyToPullRequestComment(
+    project: string,
+    repo: string,
+    id: number,
+    threadId: number,
+    parentCommentId: number,
+    content: string
+  ): Promise<AzPullRequestComment>;
   listPipelines(project: string, top?: number): Promise<AzPipeline[]>;
   runPipeline(project: string, pipelineId: number, branch?: string): Promise<AzPipelineRun>;
   listPipelineRuns(project: string, pipelineId: number, top?: number): Promise<AzPipelineRun[]>;
@@ -178,6 +193,50 @@ export function createClient(config: Config): AzDevOpsClient {
           `${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/threads`
         );
         return data.value;
+      } catch (err) {
+        handleAxiosError(err);
+      }
+    },
+
+    async createPullRequestCommentThread(project, repo, id, content) {
+      try {
+        const { data } = await http.post<AzPullRequestCommentThread>(
+          `${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/threads`,
+          {
+            comments: [
+              {
+                parentCommentId: 0,
+                content,
+                commentType: 1,
+              },
+            ],
+            status: 1,
+          }
+        );
+        return data;
+      } catch (err) {
+        handleAxiosError(err);
+      }
+    },
+
+    async replyToPullRequestComment(
+      project,
+      repo,
+      id,
+      threadId,
+      parentCommentId,
+      content
+    ) {
+      try {
+        const { data } = await http.post<AzPullRequestComment>(
+          `${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/threads/${threadId}/comments`,
+          {
+            content,
+            parentCommentId,
+            commentType: 1,
+          }
+        );
+        return data;
       } catch (err) {
         handleAxiosError(err);
       }
