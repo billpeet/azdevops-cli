@@ -5,6 +5,7 @@ import {
   AzRepository,
   AzRef,
   AzPullRequest,
+  AzPullRequestCommentThread,
   AzReviewer,
   AzPipeline,
   AzPipelineRun,
@@ -32,6 +33,7 @@ export interface AzDevOpsClient {
     description?: string;
   }): Promise<AzPullRequest>;
   listPullRequestReviewers(project: string, repo: string, id: number): Promise<AzReviewer[]>;
+  listPullRequestCommentThreads(project: string, repo: string, id: number): Promise<AzPullRequestCommentThread[]>;
   listPipelines(project: string, top?: number): Promise<AzPipeline[]>;
   runPipeline(project: string, pipelineId: number, branch?: string): Promise<AzPipelineRun>;
   listPipelineRuns(project: string, pipelineId: number, top?: number): Promise<AzPipelineRun[]>;
@@ -163,6 +165,17 @@ export function createClient(config: Config): AzDevOpsClient {
       try {
         const { data } = await http.get<AzListResponse<AzReviewer>>(
           `${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/reviewers`
+        );
+        return data.value;
+      } catch (err) {
+        handleAxiosError(err);
+      }
+    },
+
+    async listPullRequestCommentThreads(project, repo, id) {
+      try {
+        const { data } = await http.get<AzListResponse<AzPullRequestCommentThread>>(
+          `${encodeURIComponent(project)}/_apis/git/repositories/${encodeURIComponent(repo)}/pullrequests/${id}/threads`
         );
         return data.value;
       } catch (err) {

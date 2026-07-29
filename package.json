@@ -15,6 +15,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
+    "test": "tsx --test test/pr-comments.test.ts",
     "prepare": "npm run build"
   },
   "engines": {

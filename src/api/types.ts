@@ -22,7 +22,7 @@ export interface AzRef {
 export interface AzIdentity {
   id: string;
   displayName: string;
-  uniqueName: string;
+  uniqueName?: string;
 }
 
 export interface AzReviewer extends AzIdentity {
@@ -42,6 +42,54 @@ export interface AzPullRequest {
   mergeStatus: string;
   url: string;
   repository: AzRepository;
+}
+
+export type AzCommentType = 'unknown' | 'text' | 'codeChange' | 'system';
+
+export type AzCommentThreadStatus =
+  | 'unknown'
+  | 'active'
+  | 'fixed'
+  | 'wontFix'
+  | 'closed'
+  | 'byDesign'
+  | 'pending';
+
+export interface AzCommentPosition {
+  line: number;
+  offset: number;
+}
+
+export interface AzCommentThreadContext {
+  filePath?: string;
+  leftFileStart?: AzCommentPosition;
+  leftFileEnd?: AzCommentPosition;
+  rightFileStart?: AzCommentPosition;
+  rightFileEnd?: AzCommentPosition;
+}
+
+export interface AzPullRequestComment {
+  id: number;
+  parentCommentId: number;
+  author: AzIdentity;
+  content?: string;
+  publishedDate: string;
+  lastUpdatedDate: string;
+  lastContentUpdatedDate?: string;
+  commentType: AzCommentType;
+  isDeleted?: boolean;
+  usersLiked?: AzIdentity[];
+}
+
+export interface AzPullRequestCommentThread {
+  id: number;
+  publishedDate: string;
+  lastUpdatedDate: string;
+  comments: AzPullRequestComment[];
+  status?: AzCommentThreadStatus;
+  threadContext?: AzCommentThreadContext | null;
+  isDeleted: boolean;
+  properties?: Record<string, unknown>;
 }
 
 export interface AzPipeline {

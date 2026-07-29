@@ -69,7 +69,14 @@ azdevops pr update --repo <repo> --id <id> [--status completed|abandoned] [--tit
 
 # List reviewers
 azdevops pr reviewers --repo <repo> --id <id> [--project <project>]
+
+# List review comment threads (system activity is hidden by default)
+azdevops pr comments --repo <repo> --id <id> [--unresolved] [--include-system] [--project <project>]
 ```
+
+`pr comments` returns complete discussion threads with replies and file/line context. `--unresolved`
+keeps active, pending, and unknown threads while excluding fixed, closed, won't-fix, and by-design
+threads. Use the `threads` alias if you prefer Azure DevOps terminology.
 
 ### Pipelines
 
@@ -128,6 +135,9 @@ azdevops work-item get --id 12345 --project MyProject | jq '.fields["System.Titl
 
 # Query active bugs
 azdevops work-item query --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.WorkItemType] = 'Bug' AND [System.State] = 'Active'" --project MyProject
+
+# Get only actionable PR feedback, including file and line context
+azdevops pr comments --repo my-repo --id 42 --unresolved --pretty
 ```
 
 ## Development

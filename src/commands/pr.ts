@@ -3,6 +3,10 @@ import chalk from 'chalk';
 import { getConfig, resolveProject } from '../config/store';
 import { createClient } from '../api/client';
 import { AzPullRequest, AzReviewer } from '../api/types';
+import {
+  filterPullRequestCommentThreads,
+  printPullRequestCommentThreads,
+} from './pr-comments';
 
 function die(err: unknown): never {
   const message = err instanceof Error ? err.message : String(err);
@@ -270,6 +274,45 @@ export function registerPr(program: Command): void {
           console.log(opts.pretty ? JSON.stringify(reviewers, null, 2) : JSON.stringify(reviewers));
         } else {
           printReviewerList(reviewers);
+        }
+      } catch (err) {
+        die(err);
+      }
+    });
+
+  pr
+    .command('comments')
+    .alias('threads')
+    .description('List comment threads on a pull request')
+    .requiredOption('--repo <repo>', 'Repository name or ID')
+    .requiredOption('--id <id>', 'Pull request ID')
+    .option('--project <project>', 'Project name (or set default with setup)')
+    .option('--unresolved', 'Show only threads that are not resolved')
+    .option('--include-system', 'Include system-generated activity threads')
+    .option('--format <format>', 'Output format: text or json', 'json')
+    .option('--pretty', 'Pretty-print JSON output')
+    .action(async (opts) => {
+      let config;
+      try { config = getConfig(); } catch (err) { die(err); }
+      let project;
+      try { project = resolveProject(opts, config); } catch (err) { die(err); }
+
+      const client = createClient(config);
+      try {
+        const allThreads = await client.listPullRequestCommentThreads(
+          project,
+          opts.repo,
+          parseInt(opts.id, 10)
+        );
+        const threads = filterPullRequestCommentThreads(allThreads, {
+          unresolved: opts.unresolved,
+          includeSystem: opts.includeSystem,
+        });
+
+        if (opts.format === 'json') {
+          console.log(opts.pretty ? JSON.stringify(threads, null, 2) : JSON.stringify(threads));
+        } else {
+          printPullRequestCommentThreads(threads);
         }
       } catch (err) {
         die(err);
